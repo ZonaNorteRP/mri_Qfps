@@ -4,7 +4,7 @@ lua54 "yes"
 use_experimental_fxv2_oal "yes"
 
 description "FPS Boost Script"
-author "GFive & MRI Qbox"
+author "GFive, GH & MRI Qbox"
 version "1.0.0"
 
 ox_lib "locale"
@@ -28,8 +28,12 @@ dependencies {
     "ox_lib",
 }
 
+ui_page 'ui/dist/index.html'
+
 files {
-    "locales/*.json"
+    "locales/*.json",
+    'ui/dist/index.html',
+	'ui/dist/assets/**',
 }
 
 dependencies {

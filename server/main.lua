@@ -1,7 +1,5 @@
-if GetResourceState('mri_Qbox') ~= 'started' then
-    lib.addCommand('fpsmenu',{
-        help = locale('menu.description'),
-    }, function(source, args, raw)
-        lib.callback('mri_Qfps:fpsMenu', source)
-    end)
-end
+lib.addCommand('fps', {
+    help = 'Exibir menu fps MRI',
+}, function(source, args)
+    return TriggerClientEvent("mri_Qfps:openFpsMenu", source)
+end)
