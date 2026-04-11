@@ -1,6 +1,6 @@
 {
     "menu.mriFpsTitle": "MRI FPS Menu",
-    "menu.mriFpsDescription": "FPS/Graphics Options.",
+    "menu.mriFpsDescription": "FPS/Graphics/Crosshair Options.",
     "menu.gfxTitle": "MRI GFX",
     "menu.gfxDescription": "Graphics Options.",
     "menu.fpsTitle": "FPS Booster",
@@ -26,5 +26,7 @@
     "menu.timecycleYell": "Option #2",
     "menu.timecycleTunnel": "Option #3",
     "menu.timecyclePower": "Option #4",
-    "menu.timecycleModifierDescription": "Status: %s"
+    "menu.timecycleModifierDescription": "Status: %s",
+    "menu.crosshairTitle": "Custom Crosshair",
+    "menu.crosshairDescription": "Customize your crosshair."
 }

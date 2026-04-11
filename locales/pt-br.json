@@ -1,6 +1,6 @@
 {
     "menu.mriFpsTitle": "MRI FPS Menu",
-    "menu.mriFpsDescription": "Opções FPS/Gráficos.",
+    "menu.mriFpsDescription": "Opções FPS/Gráficos/Mira.",
     "menu.gfxTitle": "MRI GFX",
     "menu.gfxDescription": "Opções de Gráficos.",
     "menu.fpsTitle": "FPS Booster",
@@ -26,5 +26,7 @@
     "menu.timecycleYell": "Opção #2",
     "menu.timecycleTunnel": "Opção #3",
     "menu.timecyclePower": "Opção #4",
-    "menu.timecycleModifierDescription": "Status: %s"
+    "menu.timecycleModifierDescription": "Status: %s",
+    "menu.crosshairTitle": "Mira Customizada",
+    "menu.crosshairDescription": "Personalize sua mira."
 }

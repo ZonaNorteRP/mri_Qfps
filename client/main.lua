@@ -5,6 +5,10 @@ local lightsCutOff = 1.0
 local shadowsCutOff = 1.0
 local presetFps = "default"
 
+-- Crosshair state
+local crosshairEnabled = false
+local crosshairSettings = nil
+
 local function ifThen(condition, ifTrue, ifFalse)
     if condition then
         return ifTrue
@@ -97,11 +101,164 @@ local function setPresetFps(preset)
     end
 end
 
+-- ═══ Crosshair System ═══
+
+local function applyCrosshairUI(settings)
+    if not settings or not settings.enabled then
+        crosshairEnabled = false
+        return
+    end
+
+    crosshairEnabled = true
+    crosshairSettings = settings
+
+    SendNUIMessage({
+        action = 'updateCrosshairStyle',
+        data = settings
+    })
+end
+
+-- Efficient aiming detection loop (0.00ms idle, optimized fade-out)
+Citizen.CreateThread(function()
+    local isAiming = false
+    local unarmedHash = GetHashKey("WEAPON_UNARMED")
+    local playerId = PlayerId()
+    local keepHidingTimer = 0
+
+    while true do
+        local sleep = 500
+        
+        if crosshairEnabled then
+            local ped = cache.ped or PlayerPedId()
+
+            if GetSelectedPedWeapon(ped) ~= unarmedHash then
+                -- Armed, check if aiming or hip-firing
+                local isCombatActive = IsPlayerFreeAiming(playerId) or IsControlPressed(0, 25) or IsPedShooting(ped)
+
+                if isCombatActive then 
+                    sleep = 0 
+                    keepHidingTimer = GetGameTimer() + 500 -- Extend 0ms loop for 500ms after leaving combat
+                    HideHudComponentThisFrame(14) -- Hide native crosshair
+
+                    if not isAiming then
+                        isAiming = true
+                        SendNUIMessage({ action = "showCrosshair" })
+                    end
+                elseif GetGameTimer() < keepHidingTimer then
+                    -- Player just stopped aiming (quick-scope transition)
+                    -- Keep loop at 0 and hide native so it doesn't flash during the weapon lowering animation
+                    sleep = 0
+                    HideHudComponentThisFrame(14)
+                    
+                    if isAiming then
+                        isAiming = false
+                        SendNUIMessage({ action = "hideCrosshair" })
+                    end
+                else
+                    -- Relaxed state while carrying weapon
+                    sleep = 50 
+                    
+                    if isAiming then
+                        isAiming = false
+                        SendNUIMessage({ action = "hideCrosshair" })
+                    end
+                end
+            else
+                if isAiming then
+                    isAiming = false
+                    SendNUIMessage({ action = "hideCrosshair" })
+                end
+            end
+        else
+            if isAiming then
+                isAiming = false
+                SendNUIMessage({ action = "hideCrosshair" })
+            end
+        end
+
+        Citizen.Wait(sleep)
+    end
+end)
+
+local function saveCrosshairKvp(settings)
+    if not settings then return end
+    SetResourceKvp("mri_Qfps:CrosshairEnabled", tostring(settings.enabled))
+    SetResourceKvp("mri_Qfps:CrosshairSize", tostring(settings.size or 5))
+    SetResourceKvp("mri_Qfps:CrosshairThickness", tostring(settings.thickness or 1))
+    SetResourceKvp("mri_Qfps:CrosshairGap", tostring(settings.gap or 0))
+    SetResourceKvp("mri_Qfps:CrosshairDot", tostring(settings.dot and 1 or 0))
+    SetResourceKvp("mri_Qfps:CrosshairColorR", tostring(settings.color_r or 50))
+    SetResourceKvp("mri_Qfps:CrosshairColorG", tostring(settings.color_g or 250))
+    SetResourceKvp("mri_Qfps:CrosshairColorB", tostring(settings.color_b or 50))
+    SetResourceKvp("mri_Qfps:CrosshairAlpha", tostring(settings.alpha or 200))
+    SetResourceKvp("mri_Qfps:CrosshairOutline", tostring(settings.outline and 1 or 0))
+    SetResourceKvp("mri_Qfps:CrosshairOutlineThickness", tostring(settings.outlineThickness or 1))
+    SetResourceKvp("mri_Qfps:CrosshairStyle", tostring(settings.style or 4))
+end
+
+local function loadCrosshairKvp()
+    local enabled = GetResourceKvpString("mri_Qfps:CrosshairEnabled")
+    if enabled == nil then
+        return nil
+    end
+
+    return {
+        enabled = enabled == "true",
+        size = tonumber(GetResourceKvpString("mri_Qfps:CrosshairSize")) or 5,
+        thickness = tonumber(GetResourceKvpString("mri_Qfps:CrosshairThickness")) or 1,
+        gap = tonumber(GetResourceKvpString("mri_Qfps:CrosshairGap")) or 0,
+        dot = GetResourceKvpString("mri_Qfps:CrosshairDot") == "1",
+        color_r = tonumber(GetResourceKvpString("mri_Qfps:CrosshairColorR")) or 50,
+        color_g = tonumber(GetResourceKvpString("mri_Qfps:CrosshairColorG")) or 250,
+        color_b = tonumber(GetResourceKvpString("mri_Qfps:CrosshairColorB")) or 50,
+        alpha = tonumber(GetResourceKvpString("mri_Qfps:CrosshairAlpha")) or 200,
+        outline = GetResourceKvpString("mri_Qfps:CrosshairOutline") == "1",
+        outlineThickness = tonumber(GetResourceKvpString("mri_Qfps:CrosshairOutlineThickness")) or 1,
+        style = tonumber(GetResourceKvpString("mri_Qfps:CrosshairStyle")) or 4,
+    }
+end
+
+local function clearCrosshairKvp()
+    DeleteResourceKvp("mri_Qfps:CrosshairEnabled")
+    DeleteResourceKvp("mri_Qfps:CrosshairSize")
+    DeleteResourceKvp("mri_Qfps:CrosshairThickness")
+    DeleteResourceKvp("mri_Qfps:CrosshairGap")
+    DeleteResourceKvp("mri_Qfps:CrosshairDot")
+    DeleteResourceKvp("mri_Qfps:CrosshairColorR")
+    DeleteResourceKvp("mri_Qfps:CrosshairColorG")
+    DeleteResourceKvp("mri_Qfps:CrosshairColorB")
+    DeleteResourceKvp("mri_Qfps:CrosshairAlpha")
+    DeleteResourceKvp("mri_Qfps:CrosshairOutline")
+    DeleteResourceKvp("mri_Qfps:CrosshairOutlineThickness")
+    DeleteResourceKvp("mri_Qfps:CrosshairStyle")
+end
+
+-- ═══ Menu ═══
+
 local function mriFpsMenu()
+    -- Load current crosshair settings for UI
+    local chSettings = loadCrosshairKvp() or {
+        enabled = false,
+        size = 5, thickness = 1, gap = 0, dot = false,
+        color_r = 50, color_g = 250, color_b = 50,
+        alpha = 200, outline = false, outlineThickness = 1, style = 4
+    }
+
     SetNuiFocus(true, true)
     SendNUIMessage({
         action = 'setVisible',
         data = true
+    })
+    SendNUIMessage({
+        action = 'initState',
+        data = {
+            preset = presetFps,
+            lodDistance = lodDistance,
+            lightsCutoff = lightsCutOff,
+            shadowsCutoff = shadowsCutOff,
+            timecycle = timecycleModifier,
+            crosshair = chSettings,
+        }
     })
 end
 
@@ -232,6 +389,12 @@ local function init()
         Optimize(true)
     end
 
+    -- Load and apply saved crosshair
+    local savedCrosshair = loadCrosshairKvp()
+    if savedCrosshair then
+        applyCrosshairUI(savedCrosshair)
+    end
+
     startFpsBoost()
 end
 
@@ -245,9 +408,33 @@ AddEventHandler("onResourceStart", function(resource)
     end
 end)
 
+-- ═══ F9 Menu Injector (mri_Qbox) ═══
+
+AddEventHandler("onResourceStop", function(resource)
+    if resource == GetCurrentResourceName() then
+        if GetResourceState("mri_Qbox") == "started" then
+            exports["mri_Qbox"]:RemovePlayerMenu(locale("menu.mriFpsTitle"))
+        end
+    end
+end)
+
+if GetResourceState("mri_Qbox") == "started" then
+    exports["mri_Qbox"]:AddPlayerMenu({
+        title = locale("menu.mriFpsTitle"),
+        description = locale("menu.mriFpsDescription"),
+        icon = "tools",
+        iconAnimation = "fade",
+        arrow = true,
+        onSelectFunction = mriFpsMenu
+    })
+end
+
+-- Fallback: direct event trigger
 RegisterNetEvent("mri_Qfps:openFpsMenu", function()
     mriFpsMenu()
 end)
+
+-- ═══ NUI Callbacks ═══
 
 RegisterNUICallback("close", function(data, cb)
     SetNuiFocus(false, false)
@@ -262,15 +449,34 @@ end)
 RegisterNUICallback("setSliders", function(data, cb)
     if data.lodDistance ~= nil then
         lodDistance = tonumber(data.lodDistance)
-        SetResourceKvp("mri_Qfps:LodDistance", lodDistance)
+        SetResourceKvp("mri_Qfps:LodDistance", tostring(lodDistance))
     end
     if data.lightsCutoff ~= nil then
         lightsCutOff = tonumber(data.lightsCutoff)
-        SetResourceKvp("mri_Qfps:LightsCutOff", lightsCutOff)
+        SetResourceKvp("mri_Qfps:LightsCutOff", tostring(lightsCutOff))
     end
     if data.shadowsCutoff ~= nil then
         shadowsCutOff = tonumber(data.shadowsCutoff)
-        SetResourceKvp("mri_Qfps:ShadowsCutOff", shadowsCutOff)
+        SetResourceKvp("mri_Qfps:ShadowsCutOff", tostring(shadowsCutOff))
     end
+    cb("ok")
+end)
+
+RegisterNUICallback("setTimecycle", function(data, cb)
+    setPlayerTimecycleModifier({cycle = data.cycle, extra = data.extra})
+    cb("ok")
+end)
+
+RegisterNUICallback("setCrosshair", function(data, cb)
+    applyCrosshairUI(data)
+    saveCrosshairKvp(data)
+    cb("ok")
+end)
+
+RegisterNUICallback("resetCrosshair", function(data, cb)
+    crosshairEnabled = false
+    crosshairSettings = nil
+    clearCrosshairKvp()
+    SendNUIMessage({ action = "hideCrosshair" })
     cb("ok")
 end)
